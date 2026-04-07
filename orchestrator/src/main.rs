@@ -17,21 +17,29 @@ async fn main() {
 
     println!("🚀 Running Idea Agent...\n");
 
-    let idea = generate_idea(&anthropic_key)
-        .await
-        .expect("Failed to generate idea");
+    let idea = match generate_idea(&anthropic_key).await {
+        Ok(i) => i,
+        Err(e) => {
+            eprintln!("Failed to generate idea: {e}");
+            std::process::exit(1);
+        }
+    };
 
-    println!("💡 Generated Idea:\n{idea}\n");
+    let pretty = serde_json::to_string_pretty(&idea).expect("Failed to serialize idea");
+    println!("💡 Generated Idea: {}\n", idea.title);
 
-    create_issue(
+    if let Err(e) = create_issue(
         &github_token,
         owner,
         repo,
-        "AI-generated Startup Idea",
-        &idea,
+        &format!("AI-generated Startup Idea: {}", idea.title),
+        &pretty,
     )
     .await
-    .expect("Failed to create GitHub issue");
+    {
+        eprintln!("Failed to create GitHub issue: {e}");
+        std::process::exit(1);
+    }
 
     println!("✅ GitHub issue created!");
 }
